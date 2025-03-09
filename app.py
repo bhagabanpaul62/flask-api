@@ -10,17 +10,27 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# Load the model safely
+# Model path
 model_path = os.path.join(os.path.dirname(__file__), "model", "lung_cancer_model.h5")
-print(f"Loading model from: {model_path}")
+print(f"🔍 Model path: {model_path}")
 
-try:
-    model = tf.keras.models.load_model(model_path)
-except Exception as e:
-    print(f"Error loading model: {e}")
-    model = None
+# Load model only when needed
+model = None
 
-# Define class labels
+def get_model():
+    """Load model dynamically to prevent memory issues."""
+    global model
+    if model is None:
+        try:
+            print("⚡ Loading model...")
+            model = tf.keras.models.load_model(model_path)
+            print("✅ Model loaded successfully!")
+        except Exception as e:
+            print(f"❌ Error loading model: {e}")
+            model = None
+    return model
+
+# Class labels
 class_labels = ["lung_aca", "lung_scc", "lung_n"]
 
 def preprocess_image(image_file):
@@ -38,21 +48,28 @@ def preprocess_image(image_file):
 def predict():
     """Handle image upload and return prediction."""
     if "file" not in request.files:
+        print("❌ No file uploaded!")
         return jsonify({"error": "No file uploaded"}), 400
 
     file = request.files["file"]
+    print(f"📂 Received file: {file.filename}")
 
+    model = get_model()
     if model is None:
-        return jsonify({"error": "Model is not loaded"}), 500
+        return jsonify({"error": "Model failed to load"}), 500
 
     try:
         processed_image = preprocess_image(io.BytesIO(file.read()))
+
+        print("⚡ Making a prediction...")
         prediction = model.predict(processed_image)
         predicted_class = np.argmax(prediction)
         confidence = float(np.max(prediction) * 100)
 
+        print(f"✅ Prediction: {class_labels[predicted_class]}, Confidence: {confidence:.2f}%")
         return jsonify({"prediction": class_labels[predicted_class], "confidence": f"{confidence:.2f}%"})
     except Exception as e:
+        print(f"❌ Error processing image: {e}")
         return jsonify({"error": f"Failed to process image: {str(e)}"}), 500
 
 if __name__ == "__main__":
