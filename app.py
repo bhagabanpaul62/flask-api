@@ -43,6 +43,10 @@ def preprocess_image(image_file):
         return img_array
     except Exception as e:
         raise ValueError(f"Error processing image: {str(e)}")
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({"message": "Flask API is running!"}), 200
+
 
 @app.route("/predict", methods=["POST"])
 def predict():
